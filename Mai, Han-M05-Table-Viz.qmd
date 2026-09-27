@@ -1,0 +1,407 @@
+---
+title: "M05-Visualizing Data with Tables for MSDM CEP"
+subtitle: "PhD Orthodontics · Building a clear reporting approach for Google Ads analysis"
+author: "Han Mai"
+date: today
+format:
+  html:
+    theme: cosmo
+    toc: true
+    toc-title: "In this report"
+    toc-depth: 3
+    toc-expand: 2
+    number-sections: true
+    code-link: true
+    embed-resources: true
+    code-fold: true
+    code-summary: "Show R code"
+    code-tools: true
+    code-overflow: wrap
+    code-copy: true
+    smooth-scroll: true
+    link-external-newwindow: true
+    page-layout: full
+    include-in-header:
+      text: |
+        <style>
+        :root { --bs-primary: #176B72; --bs-link-color: #176B72; }
+        body { color: #243746; font-family: Arial, sans-serif; }
+        main { max-width: 1120px; }
+        #title-block-header { border-top: 7px solid #176B72; padding-top: 1.6rem; margin-bottom: 2.2rem; }
+        #title-block-header h1 { color: #163C4A; font-weight: 700; }
+        .subtitle { color: #547078; }
+        h1, h2, h3 { color: #163C4A; }
+        h2 { margin-top: 2rem; }
+        blockquote { border-left: 4px solid #9CBFC2; background: #F3F7F7; padding: .8rem 1rem; color: #344E59; font-size: .95rem; }
+        .callout { border-radius: 7px; }
+        .gt_table { font-variant-numeric: tabular-nums; }
+        .gt_table .svglite rect, .gt_table .svglite polyline { fill: none; }
+        .cell-output-display { overflow-x: auto; padding-bottom: .4rem; }
+        .panel-tabset { margin: 1rem 0 1.5rem; }
+        .small-note { font-size: .9rem; color: #50626C; }
+        a { text-underline-offset: 3px; }
+        @media print { details, .code-tools-button { display: none; } }
+        </style>
+editor: visual
+execute:
+  freeze: auto
+  warning: false
+  message: false
+  error: false
+---
+
+```{r}
+#| label: setup
+#| include: false
+library(dplyr)
+library(tidyr)
+library(gt)
+library(gtExtras)
+options(scipen = 999)
+num <- function(x) formatC(x, format = "f", digits = 2, big.mark = ",")
+usd <- function(x) paste0("$", num(x))
+pct_text <- function(x) paste0(num(100 * x), "%")
+```
+
+# Learning reflection {#sec-reflection}
+
+## What the demonstrations taught me
+
+> **Summarize what you learned from the videos you watched.**
+
+The central lesson is that a table is a designed explanation, not simply a printed data frame. The Step 1 lecture's sample-characteristics demonstration connects data preparation to readable summaries: variables need appropriate types, meaningful labels, and clearly defined statistics before presentation. Its example uses `gtsummary::tbl_summary()` for sample characteristics. For this assignment, I apply the same preparation principle with `dplyr`, then construct the display using the required `gt` and `gtExtras` packages.
+
+The Step 2 demonstration by Rich Iannone shows a layered workflow: prepare a summary, call `gt()`, then add context and formatting. Its penguin example uses a species stub and readable measurements. I apply `tab_header()`, `tab_stubhead()`, `cols_label()`, `fmt_number()`, `tab_source_note()`, `tab_footnote()`, and `data_color()` to help readers understand the table without decoding R variable names. A source note identifies provenance, while a footnote explains a specific measure or cell. These serve different purposes.
+
+Step 3's household-income example reinforces that currency, alignment, spacing, and a clear title are part of communicating the result. Step 4 adds two useful ideas: Tom Mock's discussion emphasizes intentional table design, and the R Programming 101 demonstration groups `mtcars` by cylinder count, stores values in a list-column, and adds a distribution plot with `gt_plt_dist()`. I adapt that list-column technique to pizza prices and use chronologically ordered monthly totals for sparklines. The full-year number and the small chart answer different questions: how much was sold, and how that total was distributed through time.
+
+**Application in this report:** data are summarized before formatting; numeric columns use consistent precision; notes define the measures; and small charts accompany rather than replace exact values.
+
+## What I value in the packages
+
+> **What did you like about the gt and gtExtra packages demonstrated in the videos?**
+
+I like the way `gt` lets me make one deliberate improvement at a time. I can change a label or attach a footnote without manually rebuilding the entire table. That is useful for the CEP because new reporting periods should update the calculations and narrative together. The table's code also records design choices, making it easier to explain and repeat the work.
+
+I particularly value how **`gtExtras`** adds compact graphics to the same table. The assignment calls it “gtExtra”; the installed package name is `gtExtras`. A monthly sparkline makes a change visible, while the adjacent numbers support exact comparisons. Its distribution plots also reveal variation that a mean alone can hide. These tools save formatting effort, but they still require analytical judgment: the values must be correctly grouped, time must be ordered, and chart scales must be explained.
+
+## How tables and charts work together
+
+> **How do tables complement charts for data visualization?**
+
+A chart can help a client recognize a pattern quickly. A table supplies the precise values, units, definitions, and supporting details needed to evaluate it. For a future Google Ads review, a time-series chart might reveal a change in inquiry volume, while a campaign table could show spend, clicks, validated inquiries, and cost per inquiry for the same period. Together they connect the overall pattern to the segments that need investigation.
+
+@tbl-category brings these two roles into one view: the statistics allow direct lookup, and the sparkline shows monthly movement. The separate price-distribution table provides a second perspective on variation. Neither table establishes causation; visual patterns help identify questions to investigate. This approach follows the distinction between value lookup and overall patterns discussed in the [gtExtras plotting guide](https://jthomasmock.github.io/gtExtras/articles/plotting-with-gtExtras.html).
+
+## When I would choose a table
+
+> **Under what circumstances would you prefer to use tables rather than charts to visualize data?**
+
+I would prefer a table when the reader needs exact amounts, several measures with different units, a concise comparison of a few segments, or an auditable record of a decision. For example, a paid-search review may need currency amounts, percentages, counts, and data-quality notes side by side. A table can communicate all of these without forcing them onto one chart axis.
+
+I would also use a table when the task is to compare a campaign with a defined benchmark or document why a result is unavailable. A missing or unvalidated inquiry count should be explained, not plotted as zero. If the main task were to understand a long time trend or a relationship across many observations, I would instead lead with a chart and use a table for supporting detail. For this report, four categories are few enough for a compact, readable comparison.
+
+# Descriptive statistics and visual tables {#sec-analysis}
+
+> **2. Use the data for your MSDM CEP. If you don't have data yet, use the "pizzaplace" dataset, which is built-in data available within the gt package. Pick some variables relevant to your Analytics Objectives and share some descriptive statistics using gt and gtExtra functions together to show numbers and small charts in one table. This table can be presented for your presentation. In this table, incorporate the following at a minimum.**
+>
+> 1. Add titles and subtitles to the tables.
+> 2. Give labels to the stub head.
+> 3. Relabel the variable names in the table to make them easier to understand.
+> 4. Add source notes.
+> 5. Add footnotes.
+> 6. Add a spanner column label.
+> 7. Format numbers with 2 decimal places and currency signs, if applicable.
+> 8. If applicable, color a column or row with numeric data.
+> 9. Use additional functions as needed for your data.
+
+## Data choice and preparation
+
+The available CEP proposal identifies my objective as **Google Ads Optimization (AO4)**, including paid-search segments, cost effectiveness, and valid consultation inquiries. It provides project context but no campaign-level observations that can support the required descriptive table. Therefore, I use the assignment's permitted fallback. Pizza categories demonstrate **segmentation**, prices demonstrate **monetary summaries**, and dates demonstrate **time aggregation**. These are transferable methods; pizza categories and sales are not substitutes for actual campaigns or inquiries.
+
+The [dataset documentation](https://gt.rstudio.com/reference/pizzaplace.html) identifies each row as a pizza and `id` as an order that can contain multiple pizzas. I retain every record, including repeated-looking rows, because multiple identical pizzas can belong to one order. I do not deduplicate legitimate units.[^teaching-data]
+
+[^teaching-data]: `gt::pizzaplace` is a synthetic teaching dataset supplied by the package. Its findings illustrate table methods and are not observations of PhD Orthodontics or its advertising performance.
+
+```{r}
+#| label: prepare-data
+#| code-summary: "Show data preparation and validation"
+pizza <- gt::pizzaplace |>
+  mutate(
+    date = as.Date(date),
+    month = as.Date(format(date, "%Y-%m-01")),
+    category = tools::toTitleCase(type)
+  )
+
+# Stop rather than silently discard unexpected missing or invalid values.
+stopifnot(
+  nrow(pizza) == 49574L,
+  !anyNA(pizza[c("id", "date", "month", "category", "price")]),
+  all(is.finite(pizza$price)),
+  all(pizza$price > 0),
+  n_distinct(pizza$category) == 4L
+)
+
+category_stats <- pizza |>
+  group_by(category) |>
+  summarise(
+    pizzas = n(),
+    revenue = sum(price),
+    mean_price = mean(price),
+    median_price = median(price),
+    sd_price = sd(price),
+    price_values = list(price),
+    .groups = "drop"
+  ) |>
+  mutate(revenue_share = revenue / sum(revenue)) |>
+  arrange(desc(revenue))
+
+monthly <- pizza |>
+  group_by(category, month) |>
+  summarise(monthly_revenue = sum(price), .groups = "drop") |>
+  arrange(category, month)
+
+# Each category has all 12 months. No missing months are invented or filled.
+stopifnot(
+  all(count(monthly, category)$n == 12L),
+  all(monthly$month %in% seq(as.Date("2015-01-01"),
+                           as.Date("2015-12-01"), by = "month"))
+)
+
+monthly_lists <- monthly |>
+  group_by(category) |>
+  summarise(trend = list(monthly_revenue), .groups = "drop")
+
+summary_data <- category_stats |>
+  left_join(monthly_lists, by = "category")
+
+stopifnot(
+  sum(summary_data$pizzas) == nrow(pizza),
+  abs(sum(summary_data$revenue) - sum(pizza$price)) < 0.000001,
+  abs(sum(summary_data$revenue_share) - 1) < 0.000001,
+  abs(sum(monthly$monthly_revenue) - sum(pizza$price)) < 0.000001
+)
+
+leader <- summary_data |> slice_max(revenue, n = 1, with_ties = FALSE)
+highest_mean <- summary_data |> slice_max(mean_price, n = 1, with_ties = FALSE)
+monthly_total <- monthly |>
+  group_by(month) |>
+  summarise(revenue = sum(monthly_revenue), .groups = "drop")
+peak_month <- monthly_total |> slice_max(revenue, n = 1, with_ties = FALSE)
+```
+
+::: {.callout-note title="Coverage and checks"}
+The analysis contains **`r format(nrow(pizza), big.mark = ",")` pizzas**, **`r format(n_distinct(pizza$id), big.mark = ",")` distinct orders**, and **`r usd(sum(pizza$price))` in sales**, covering **`r format(min(pizza$date), "%B %d, %Y")`–`r format(max(pizza$date), "%B %d, %Y")`**. Required analysis fields have no missing values. All four categories have 12 observed months, and the category and monthly totals reconcile to the source data.
+:::
+
+::: panel-tabset
+### Measures and definitions
+
+| Measure | Calculation and reading |
+|:-----------------------------------|:-----------------------------------|
+| Pizzas sold | Number of pizza-level rows, not number of orders or customers |
+| Sales revenue | Sum of `price`; USD, without a claim about profit or advertising attribution |
+| Revenue share | Category revenue divided by all-category revenue |
+| Mean and median price | Average and middle pizza-level selling price within the category |
+| Price SD | Sample standard deviation of pizza-level selling prices, in USD |
+| Monthly sparkline | January–December monthly revenue; the same vertical scale across categories |
+
+### Preparation decisions
+
+1.  Keep the packaged dataset unchanged and create derived fields in memory.
+2.  Parse dates and group by **category** before calculating descriptive statistics.
+3.  Aggregate monthly sales, explicitly sort by month, then store the 12 values in a list-column.
+4.  Retain full numerical precision for computation; apply two-decimal formatting only in the display.
+5.  Rank categories by revenue and use a restrained sequential color scale for that same column.
+
+The grouping and presentation workflow follows the [gtcars case study](https://gt.rstudio.com/articles/case-study-gtcars.html). The list-column approach follows the [gtExtras examples](https://jthomasmock.github.io/gtExtras/articles/plotting-with-gtExtras.html).
+:::
+
+## Category performance at a glance
+
+```{r}
+#| label: tbl-category
+#| tbl-cap: "Pizza category performance: precise values and monthly context."
+#| code-summary: "Show the main gt + gtExtras table code"
+category_table <- summary_data |>
+  select(category, pizzas, revenue, revenue_share,
+         mean_price, median_price, sd_price, trend) |>
+  gt(rowname_col = "category", id = "category_performance") |>
+  gt_plt_sparkline(
+    trend, same_limit = TRUE, label = FALSE,
+    fig_dim = c(7, 28),
+    palette = c("#176B72", "#176B72", "#176B72", "#176B72", "#E7EFEF")
+  ) |>
+  tab_header(
+    title = md("**Classic leads annual sales; price profiles differ**"),
+    subtitle = "Teaching dataset · January–December 2015 · Ranked by sales revenue"
+  ) |>
+  tab_stubhead(label = "Pizza category") |>
+  tab_spanner(label = "Sales contribution", columns = c(pizzas, revenue, revenue_share)) |>
+  tab_spanner(label = "Price per pizza (USD)", columns = c(mean_price, median_price, sd_price)) |>
+  cols_label(
+    pizzas = "Pizzas sold", revenue = "Revenue (USD)",
+    revenue_share = "Share", mean_price = "Mean",
+    median_price = "Median", sd_price = "SD",
+    trend = html("Monthly revenue<br>Jan → Dec")
+  ) |>
+  fmt_number(columns = pizzas, decimals = 2, use_seps = TRUE) |>
+  fmt_currency(columns = c(revenue, mean_price, median_price, sd_price),
+               currency = "USD", decimals = 2) |>
+  fmt_percent(columns = revenue_share, decimals = 2) |>
+  data_color(columns = revenue, palette = c("#EDF5F4", "#83B7B5"),
+             domain = range(summary_data$revenue), autocolor_text = TRUE) |>
+  cols_align(align = "right", columns = c(pizzas, revenue, revenue_share,
+                                          mean_price, median_price, sd_price)) |>
+  cols_width(category ~ px(115), pizzas ~ px(100), revenue ~ px(140),
+             revenue_share ~ px(85), c(mean_price, median_price, sd_price) ~ px(80),
+             trend ~ px(190)) |>
+  tab_footnote(
+    footnote = "One row is one pizza. Counts are shown with two decimal places to follow the assignment's formatting requirement; all counts are whole units.",
+    locations = cells_column_labels(columns = pizzas)
+  ) |>
+  tab_footnote(
+    footnote = "Share = category revenue / total revenue. Rounded shares may not add to exactly 100%.",
+    locations = cells_column_labels(columns = revenue_share)
+  ) |>
+  tab_footnote(
+    footnote = "SD is the sample standard deviation of individual pizza prices, not uncertainty in the mean.",
+    locations = cells_column_labels(columns = sd_price)
+  ) |>
+  tab_footnote(
+    footnote = "Twelve observed monthly totals, January at left and December at right. All sparklines share the same vertical scale; they summarize movement, not exact monthly values.",
+    locations = cells_column_labels(columns = trend)
+  ) |>
+  tab_source_note(md("**Source:** [gt::pizzaplace](https://gt.rstudio.com/reference/pizzaplace.html), a synthetic teaching dataset. Calculations: Han Mai. Not PhD Orthodontics or Google Ads results.")) |>
+  tab_source_note("Darker revenue cells indicate higher sales within these four categories; color does not indicate profitability.") |>
+  opt_align_table_header(align = "left") |>
+  opt_table_font(font = c("Arial", "Helvetica", "sans-serif")) |>
+  tab_options(
+    table.width = pct(100), table.font.size = px(14),
+    heading.title.font.size = px(23), heading.subtitle.font.size = px(14),
+    heading.background.color = "#EDF5F4",
+    column_labels.font.weight = "bold", column_labels.padding = px(10),
+    data_row.padding = px(13),
+    table.border.top.color = "#176B72", table.border.top.width = px(3),
+    table_body.hlines.color = "#E3EAEA",
+    footnotes.font.size = px(11), source_notes.font.size = px(11)
+  )
+category_table
+```
+
+**How to read @tbl-category.** The left-hand stub names each category. The two spanners distinguish contribution to annual sales from the distribution of individual selling prices. Darker revenue cells make the ranking easier to scan. Read each sparkline from January to December; use the exact monthly values in the Appendix when a precise amount is needed. The sparklines show monthly totals, so differences in month length can affect their shape.
+
+### Findings grounded in the data
+
+-   **Volume and average value tell different stories.** `r leader$category` sells `r format(leader$pizzas, big.mark = ",")` pizzas and leads revenue at **`r usd(leader$revenue)`**, or **`r pct_text(leader$revenue_share)`** of the total. However, its mean selling price is only **`r usd(leader$mean_price)`**.
+-   **A smaller volume can accompany a higher average price.** `r highest_mean$category` has the highest mean price (**`r usd(highest_mean$mean_price)`**) but sells `r format(highest_mean$pizzas, big.mark = ",")` pizzas. A ranking based on a single average would miss the volume difference.
+-   **Annual totals hide monthly movement.** Across all categories, `r format(peak_month$month, "%B")` has the highest monthly revenue, **`r usd(peak_month$revenue)`**. The embedded lines preserve time context without adding 12 wide columns to the main table.
+
+These are descriptive findings about the teaching dataset. They do not establish customer preferences, profitability, seasonality across multiple years, or effects of marketing activity.
+
+## Variation behind the averages
+
+The Step 4 distribution demonstration motivates a supplementary view: a mean should not conceal the spread of the underlying values.
+
+```{r}
+#| label: tbl-distribution
+#| tbl-cap: "Price variation by category, using the Step 4 list-column technique."
+#| code-summary: "Show the distribution table code"
+summary_data |>
+  select(category, mean_price, median_price, sd_price, price_values) |>
+  gt(rowname_col = "category", id = "price_distributions") |>
+  gt_plt_dist(price_values, type = "boxplot", same_limit = TRUE,
+              fig_dim = c(7, 30), line_color = "#176B72", fill_color = "#CCE1E0") |>
+  tab_header(title = "Price variation adds context to the mean",
+             subtitle = "Synthetic pizza sales · Individual selling prices · USD") |>
+  tab_stubhead(label = "Pizza category") |>
+  tab_spanner(label = "Price summary (USD)", columns = c(mean_price, median_price, sd_price)) |>
+  cols_label(mean_price = "Mean", median_price = "Median", sd_price = "SD",
+             price_values = "Price distribution") |>
+  fmt_currency(columns = c(mean_price, median_price, sd_price),
+               currency = "USD", decimals = 2) |>
+  tab_footnote("Boxes summarize the middle 50% of prices, with a median line; points beyond the whiskers identify unusually distant prices. All rows use the same price scale.",
+               locations = cells_column_labels(columns = price_values)) |>
+  tab_source_note(md("**Source:** [gt::pizzaplace](https://gt.rstudio.com/reference/pizzaplace.html). Synthetic teaching data; no Google Ads observations.")) |>
+  cols_width(category ~ px(150), c(mean_price, median_price, sd_price) ~ px(95),
+             price_values ~ px(280)) |>
+  opt_align_table_header(align = "left") |>
+  opt_table_font(font = c("Arial", "Helvetica", "sans-serif")) |>
+  tab_options(table.width = pct(100), table.font.size = px(14),
+               heading.background.color = "#EDF5F4", data_row.padding = px(10),
+               table.border.top.color = "#176B72", footnotes.font.size = px(11),
+               source_notes.font.size = px(11))
+```
+
+@tbl-distribution shows why mean, median, and dispersion are useful together. Classic has the largest price SD (**`r usd(summary_data$sd_price[summary_data$category == "Classic"])`**), while its median (**`r usd(summary_data$median_price[summary_data$category == "Classic"])`**) is below its mean. The category contains a mix of pizza names and sizes, so this does not isolate a pure category effect. A comparable Google Ads review should likewise examine campaign composition before attributing a difference to strategy.
+
+# Value for the PhD Orthodontics CEP {#sec-value}
+
+> **3. Explain why the table is worth adding to your MSDM project written report or presentation slides.**
+
+The current table is worth including as a **reporting prototype or methods illustration**, clearly labeled with its teaching-data scope. Its primary value is demonstrating a repeatable way to summarize segments, show exact values alongside variation over time, and document definitions. Its pizza-sales findings do not belong in the CEP as evidence of the practice's marketing performance.
+
+Once real, validated campaign data are available, this design could become a useful Google Ads performance table for the written report. A client could compare the scale of activity with the efficiency and quality of inquiry generation in one place. In a presentation, I would keep only the most decision-relevant columns and enlarge the type, leaving detailed monthly values and definitions in the supporting report.
+
+::: panel-tabset
+## Transfer to Google Ads
+
+| Technique demonstrated here | Future AO4 application | Client question it would support |
+|:-----------------------|:-----------------------|:-----------------------|
+| Group by pizza category | Group actual records by campaign, brand/nonbrand intent, or device | Which segments contribute meaningful activity? |
+| Show totals and shares | Display spend, clicks, and validated consultation inquiries | Where are resources and results concentrated? |
+| Show averages and variation | Calculate comparable efficiency measures and inspect variation | Is apparent efficiency consistent or driven by a few observations? |
+| Order monthly values in a list-column | Plot monthly inquiries or spend for a consistent reporting period | Is performance improving, declining, or uneven? |
+| Add source notes and footnotes | Document account, period, attribution settings, and inquiry validation | Can the client interpret and trust the comparison? |
+
+## Measurement rules before implementation
+
+The future report should use **actual exported metrics**, not relabeled pizza variables. For a consistent scope and reporting period:
+
+-   **Click-through rate:** total clicks ÷ total impressions.
+-   **Average cost per click:** total spend ÷ total clicks.
+-   **Validated inquiry rate:** attributable, validated consultation inquiries ÷ clicks, if the linkage supports that definition.
+-   **Cost per validated inquiry:** total spend ÷ attributable, validated consultation inquiries.
+
+Compute these as ratios of totals rather than unweighted averages of daily rates. A zero denominator produces an undefined metric, not a zero cost. Missing or unvalidated outcomes must remain distinguishable from genuine zero outcomes.
+
+The CEP proposal defines a lead as a **valid consultation inquiry** and does not count phone-link clicks alone as leads. Duplicates and spam should be excluded where records permit. If historical attribution cannot be verified, present supported campaign metrics and describe the tracking gap. Evaluate available San Gabriel history separately from forward-looking Chino Hills recommendations; do not imply that prospective-market results have already been observed.
+:::
+
+::: {.callout-tip title="Decision value"}
+A future client table should help distinguish **high volume**, **low cost**, and **qualified results**. Those are separate dimensions. Budget recommendations should consider tracking quality, branded versus nonbranded intent, and the amount of evidence behind each rate—not merely the darkest cell or lowest displayed cost.
+:::
+
+# Appendix {#sec-appendix}
+
+## Appendix links
+
+> **4. Push your project folder to GitHub and publish the HTML file to GitHub Pages.**
+>
+> **5. Add an Appendix Section to the Quarto and provide clickable links to both URLs.**
+
+| Required destination | Status                                           |
+|:---------------------|:-------------------------------------------------|
+| GitHub repository    | **URL to be added after the project is pushed.** |
+| GitHub Pages report  | **URL to be added after the HTML is published.** |
+
+## Exact monthly values
+
+This table supports the sparklines in @tbl-category. It provides precise amounts without crowding the main display.
+
+```{r}
+#| label: tbl-monthly
+#| tbl-cap: "Monthly revenue underlying the category sparklines (USD)."
+#| code-summary: "Show exact monthly values"
+monthly |>
+  mutate(month = format(month, "%m · %b")) |>
+  pivot_wider(names_from = category, values_from = monthly_revenue) |>
+  arrange(month) |>
+  gt(rowname_col = "month", id = "monthly_values") |>
+  tab_header(title = "Monthly sales by pizza category", subtitle = "January–December 2015 · Synthetic teaching data · USD") |>
+  tab_stubhead(label = "Month") |>
+  fmt_currency(columns = where(is.numeric), currency = "USD", decimals = 2) |>
+  tab_source_note(md("**Source:** [gt::pizzaplace](https://gt.rstudio.com/reference/pizzaplace.html). Each column sums to its annual category revenue.")) |>
+  opt_align_table_header(align = "left") |>
+  tab_options(table.width = pct(100), table.font.size = px(13), data_row.padding = px(6))
+```
