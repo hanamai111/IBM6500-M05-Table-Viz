@@ -382,8 +382,8 @@ A future client table should help distinguish **high volume**, **low cost**, and
 
 | Required destination | Status                                           |
 |:---------------------|:-------------------------------------------------|
-| GitHub repository    | **URL to be added after the project is pushed.** |
-| GitHub Pages report  | **URL to be added after the HTML is published.** |
+| GitHub repository    | [View the GitHub repository](https://github.com/hanamai111/IBM6500-M05-Table-Viz) |
+| GitHub Pages report  | [Open the published HTML report](https://hanamai111.github.io/IBM6500-M05-Table-Viz/) |
 
 ## Exact monthly values
 
